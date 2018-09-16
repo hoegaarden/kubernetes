@@ -19,12 +19,12 @@ package csi
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	csipb "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	api "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/volume/csi/fake"
-	"reflect"
 )
 
 type fakeCsiDriverClient struct {
@@ -46,6 +46,12 @@ func (c *fakeCsiDriverClient) NodeGetInfo(ctx context.Context) (
 	err error) {
 	resp, err := c.nodeClient.NodeGetInfo(ctx, &csipb.NodeGetInfoRequest{})
 	return resp.GetNodeId(), resp.GetMaxVolumesPerNode(), resp.GetAccessibleTopology(), err
+}
+
+// for pre-v1.0
+func (c *fakeCsiDriverClient) NodeGetId(ctx context.Context) (nodeID string, err error) {
+	resp, err := c.nodeClient.NodeGetId(ctx, &csipb.NodeGetIdRequest{})
+	return resp.GetNodeId(), err
 }
 
 func (c *fakeCsiDriverClient) NodePublishVolume(
@@ -201,6 +207,48 @@ func TestClientNodeGetInfo(t *testing.T) {
 
 		if !reflect.DeepEqual(accessibleTopology, tc.expectedAccessibleTopology) {
 			t.Errorf("expected accessibleTopology: %v; got: %v", *tc.expectedAccessibleTopology, *accessibleTopology)
+		}
+	}
+}
+
+func TestClientNodeGetId(t *testing.T) {
+	testCases := []struct {
+		name           string
+		expectedNodeID string
+		mustFail       bool
+		err            error
+	}{
+		{
+			name:           "test ok",
+			expectedNodeID: "node1",
+		},
+		{
+			name:     "grpc error",
+			mustFail: true,
+			err:      errors.New("grpc error"),
+		},
+	}
+
+	client := setupClient(t, false /* stageUnstageSet */)
+
+	for _, tc := range testCases {
+		t.Logf("test case: %s", tc.name)
+		client.(*fakeCsiDriverClient).nodeClient.SetNextError(tc.err)
+		client.(*fakeCsiDriverClient).nodeClient.SetNodeGetIdResp(&csipb.NodeGetIdResponse{
+			NodeId: tc.expectedNodeID,
+		})
+		nodeID, err := client.NodeGetId(context.Background())
+
+		if tc.mustFail && err == nil {
+			t.Error("expected an error but got none")
+		}
+
+		if !tc.mustFail && err != nil {
+			t.Errorf("expected no errors but got: %v", err)
+		}
+
+		if nodeID != tc.expectedNodeID {
+			t.Errorf("expected nodeID: %v; got: %v", tc.expectedNodeID, nodeID)
 		}
 	}
 }
