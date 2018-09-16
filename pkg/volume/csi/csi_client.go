@@ -31,7 +31,7 @@ import (
 	"k8s.io/kubernetes/pkg/features"
 )
 
-type csiClient interface {
+type csiNodeInfoGetter interface {
 	NodeGetInfo(ctx context.Context) (
 		nodeID string,
 		maxVolumePerNode int64,
@@ -39,6 +39,34 @@ type csiClient interface {
 		err error)
 	// for pre-v1.0
 	NodeGetId(ctx context.Context) (nodeID string, err error)
+}
+
+// getNodeInfo tries to call NodeGetInfo() and falls back to NodeGetId() when
+// the former is not implemented.
+//
+// NodeGetId() is only called when NodeGetInfo() returns an "unknown method"
+// error, all other errors are immediately bubbled up and NodeGetId() is not
+// used at all.
+//
+// TODO(hoegaarden): e2e test with a driver which only supports NodeGetId() but
+//                   not NodeGetInfo()
+func getNodeInfoWithFallback(ctx context.Context, c csiNodeInfoGetter) (string, int64, *csipb.Topology, error) {
+	nodeID, maxVolumePerNode, accessibleTopology, err := c.NodeGetInfo(ctx)
+	if err == nil {
+		return nodeID, maxVolumePerNode, accessibleTopology, err
+	}
+
+	if !isUnimplementedMethodErr(err) {
+		return "", 0, nil, err
+	}
+
+	glog.Warning(log("NodeGetInfo() not supported, falling back to deprecated NodeGetId()"))
+	nodeID, err = c.NodeGetId(ctx)
+	return nodeID, 0, nil, err
+}
+
+type csiClient interface {
+	csiNodeInfoGetter
 	NodePublishVolume(
 		ctx context.Context,
 		volumeid string,

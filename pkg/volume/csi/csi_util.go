@@ -21,14 +21,17 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
+	"time"
 
 	"github.com/golang/glog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	kstrings "k8s.io/kubernetes/pkg/util/strings"
 	"k8s.io/kubernetes/pkg/volume"
-	"time"
 )
 
 const (
@@ -138,5 +141,25 @@ func hasReadWriteOnce(modes []api.PersistentVolumeAccessMode) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func isUnimplementedMethodErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	status, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	methodIsNotImplemented :=
+		status.Code() == codes.Unimplemented && strings.Contains(status.Message(), "unknown method")
+
+	if methodIsNotImplemented {
+		return true
+	}
+
 	return false
 }
