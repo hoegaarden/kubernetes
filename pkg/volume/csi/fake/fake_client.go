@@ -146,7 +146,7 @@ func (f *NodeClient) NodeUnpublishVolume(ctx context.Context, req *csipb.NodeUnp
 	return &csipb.NodeUnpublishVolumeResponse{}, nil
 }
 
-// NodeStagevolume implements csi method
+// NodeStageVolume implements csi method
 func (f *NodeClient) NodeStageVolume(ctx context.Context, req *csipb.NodeStageVolumeRequest, opts ...grpc.CallOption) (*csipb.NodeStageVolumeResponse, error) {
 	if f.nextErr != nil {
 		return nil, f.nextErr
@@ -193,12 +193,12 @@ func (f *NodeClient) NodeUnstageVolume(ctx context.Context, req *csipb.NodeUnsta
 	return &csipb.NodeUnstageVolumeResponse{}, nil
 }
 
-// NodeGetId implements method
+// NodeGetId implements csi method
 func (f *NodeClient) NodeGetId(ctx context.Context, in *csipb.NodeGetIdRequest, opts ...grpc.CallOption) (*csipb.NodeGetIdResponse, error) {
 	return nil, nil
 }
 
-// NodeGetId implements csi method
+// NodeGetInfo implements csi method
 func (f *NodeClient) NodeGetInfo(ctx context.Context, in *csipb.NodeGetInfoRequest, opts ...grpc.CallOption) (*csipb.NodeGetInfoResponse, error) {
 	if f.nextErr != nil {
 		return nil, f.nextErr
