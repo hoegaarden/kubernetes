@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -154,12 +153,5 @@ func isUnimplementedMethodErr(err error) bool {
 		return false
 	}
 
-	methodIsNotImplemented :=
-		status.Code() == codes.Unimplemented && strings.Contains(status.Message(), "unknown method")
-
-	if methodIsNotImplemented {
-		return true
-	}
-
-	return false
+	return status.Code() == codes.Unimplemented
 }

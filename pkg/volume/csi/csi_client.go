@@ -50,8 +50,13 @@ type csiNodeInfoGetter interface {
 //
 // TODO(hoegaarden): e2e test with a driver which only supports NodeGetId() but
 //                   not NodeGetInfo()
-func getNodeInfoWithFallback(ctx context.Context, c csiNodeInfoGetter) (string, int64, *csipb.Topology, error) {
-	nodeID, maxVolumePerNode, accessibleTopology, err := c.NodeGetInfo(ctx)
+func getNodeInfoWithFallback(ctx context.Context, c csiNodeInfoGetter) (
+	nodeID string,
+	maxVolumePerNode int64,
+	accessibleTopology *csipb.Topology,
+	err error) {
+
+	nodeID, maxVolumePerNode, accessibleTopology, err = c.NodeGetInfo(ctx)
 	if err == nil {
 		return nodeID, maxVolumePerNode, accessibleTopology, err
 	}

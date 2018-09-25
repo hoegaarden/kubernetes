@@ -199,8 +199,7 @@ func (f *NodeClient) NodeUnstageVolume(ctx context.Context, req *csipb.NodeUnsta
 	return &csipb.NodeUnstageVolumeResponse{}, nil
 }
 
-// NodeGetId implements csi method
-// for pre-v1.0
+// NodeGetId implements csi method for pre-v1.0
 func (f *NodeClient) NodeGetId(ctx context.Context, in *csipb.NodeGetIdRequest, opts ...grpc.CallOption) (*csipb.NodeGetIdResponse, error) {
 	if e := f.nextErr; e != nil {
 		return nil, e
