@@ -393,95 +393,78 @@ func TestGetNodeInfoWithFallback(t *testing.T) {
 	var errRandom = errors.New("some other error")
 	var errUnimplemented = status.Error(codes.Unimplemented, "unknown method someRandomMethod")
 
+	var someTopology = csipb.Topology{Segments: map[string]string{"key": "val"}}
+	var someNodeGetInfoResp = csipb.NodeGetInfoResponse{
+		NodeId:             "node id from NodeGetInfo",
+		MaxVolumesPerNode:  33,
+		AccessibleTopology: &someTopology,
+	}
+	var someNodeGetIdResp = csipb.NodeGetIdResponse{
+		NodeId: "node id from NodeGetId",
+	}
+
 	testCases := map[string]struct {
-		nodeGetInfoErr          error
-		nodeGetIdErr            error
-		expectedErr             error
-		expectedGetNodeInfoCall bool
-		expectedGetNodeIdCall   bool
+		expectedErr                error
+		expectedNodeID             string
+		expectedMaxVolumesPerNode  int64
+		expectedAccessibleTopology *csipb.Topology
+		nodeGetIdErr               error
+		nodeGetIdResp              *csipb.NodeGetIdResponse
+		nodeGetInfoErr             error
+		nodeGetInfoResp            *csipb.NodeGetInfoResponse
 	}{
 		"no error on neither method": {
-			nodeGetInfoErr:          nil,
-			nodeGetIdErr:            nil,
-			expectedErr:             nil,
-			expectedGetNodeInfoCall: true,
-			expectedGetNodeIdCall:   false,
+			nodeGetInfoResp:            &someNodeGetInfoResp,
+			expectedNodeID:             "node id from NodeGetInfo",
+			expectedMaxVolumesPerNode:  33,
+			expectedAccessibleTopology: &someTopology,
 		},
 		"unimplemented NodeGetInfo": {
-			nodeGetInfoErr:          errUnimplemented,
-			nodeGetIdErr:            nil,
-			expectedErr:             nil,
-			expectedGetNodeInfoCall: true,
-			expectedGetNodeIdCall:   true,
+			nodeGetIdResp:   &someNodeGetIdResp,
+			nodeGetInfoErr:  errUnimplemented,
+			nodeGetInfoResp: &someNodeGetInfoResp,
+			expectedNodeID:  "node id from NodeGetId",
 		},
 		"other error for NodeGetInfo": {
-			nodeGetInfoErr:          errRandom,
-			nodeGetIdErr:            nil,
-			expectedErr:             errRandom,
-			expectedGetNodeInfoCall: true,
-			expectedGetNodeIdCall:   false,
+			nodeGetInfoErr: errRandom,
+			expectedErr:    errRandom,
 		},
 		"unimplemented NodeGetInfo and error on NodeGetId": {
-			nodeGetInfoErr:          errUnimplemented,
-			nodeGetIdErr:            errRandom,
-			expectedErr:             errRandom,
-			expectedGetNodeInfoCall: true,
-			expectedGetNodeIdCall:   true,
+			nodeGetIdErr:   errRandom,
+			nodeGetInfoErr: errUnimplemented,
+			expectedErr:    errRandom,
 		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.TODO()
-			ig := &nodeInfoGetter{
-				nodeGetInfoErr: tc.nodeGetInfoErr,
-				nodeGetIdErr:   tc.nodeGetIdErr,
-			}
-			_, _, _, err := getNodeInfoWithFallback(ctx, ig)
+
+			client := setupClient(t, false)
+
+			client.(*fakeCsiDriverClient).nodeClient.SetNextNodeGetIdError(tc.nodeGetIdErr)
+			client.(*fakeCsiDriverClient).nodeClient.SetNextNodeGetInfoError(tc.nodeGetInfoErr)
+			client.(*fakeCsiDriverClient).nodeClient.SetNodeGetInfoResp(tc.nodeGetInfoResp)
+			client.(*fakeCsiDriverClient).nodeClient.SetNodeGetIdResp(tc.nodeGetIdResp)
+
+			actualNodeID, actualMaxVolumesPerNode, actualAccessibleTopology, err :=
+				getNodeInfoWithFallback(ctx, client)
+
 			if err != tc.expectedErr {
 				t.Errorf("Expected error %v, got: %v", tc.expectedErr, err)
 			}
-			checkCall(t, ig.nodeGetInfoCallCount, tc.expectedGetNodeInfoCall, "NodeGetInfo")
-			checkCall(t, ig.nodeGetIdCallCount, tc.expectedGetNodeIdCall, "NodeGetId")
+
+			if e, a := tc.expectedNodeID, actualNodeID; e != a {
+				t.Errorf("Expected node ID '%s', got: '%s'", e, a)
+			}
+
+			if e, a := tc.expectedMaxVolumesPerNode, actualMaxVolumesPerNode; e != a {
+				t.Errorf("Expected max volumes per node %d, got: %d", e, a)
+			}
+
+			if e, a := tc.expectedAccessibleTopology, actualAccessibleTopology; !reflect.DeepEqual(e, a) {
+				t.Errorf("Expected accessible topology %#v, got: %#v", e, a)
+			}
 		})
 	}
-}
-
-func checkCall(t *testing.T, callCount int, expectedCall bool, funcName string) {
-	t.Helper()
-
-	if expectedCall {
-		if callCount < 1 {
-			t.Errorf("Expected %s to be called, was not called", funcName)
-		}
-		return
-	}
-
-	if callCount > 0 {
-		t.Errorf("Expected %s not to be calle, was called %d times", funcName, callCount)
-	}
-}
-
-type nodeInfoGetter struct {
-	nodeGetIdErr   error
-	nodeGetInfoErr error
-
-	nodeGetIdCallCount   int
-	nodeGetInfoCallCount int
-}
-
-func (g *nodeInfoGetter) NodeGetId(ctx context.Context) (string, error) {
-	g.nodeGetIdCallCount += 1
-	if g.nodeGetIdErr != nil {
-		return "", g.nodeGetIdErr
-	}
-	return "some node id", nil
-}
-
-func (g *nodeInfoGetter) NodeGetInfo(ctx context.Context) (string, int64, *csipb.Topology, error) {
-	g.nodeGetInfoCallCount += 1
-	if g.nodeGetInfoErr != nil {
-		return "", 0, nil, g.nodeGetInfoErr
-	}
-	return "some node id", 0, nil, nil
 }

@@ -69,6 +69,8 @@ type NodeClient struct {
 	nodeGetInfoResp      *csipb.NodeGetInfoResponse
 	nodeGetIdResp        *csipb.NodeGetIdResponse
 	nextErr              error
+	nextNodeGetInfoErr   error
+	nextNodeGetIdErr     error
 }
 
 // NewNodeClient returns fake node client
@@ -83,6 +85,14 @@ func NewNodeClient(stageUnstageSet bool) *NodeClient {
 // SetNextError injects next expected error
 func (f *NodeClient) SetNextError(err error) {
 	f.nextErr = err
+}
+
+func (f *NodeClient) SetNextNodeGetInfoError(err error) {
+	f.nextNodeGetInfoErr = err
+}
+
+func (f *NodeClient) SetNextNodeGetIdError(err error) {
+	f.nextNodeGetIdErr = err
 }
 
 func (f *NodeClient) SetNodeGetInfoResp(resp *csipb.NodeGetInfoResponse) {
@@ -204,6 +214,9 @@ func (f *NodeClient) NodeGetId(ctx context.Context, in *csipb.NodeGetIdRequest, 
 	if e := f.nextErr; e != nil {
 		return nil, e
 	}
+	if e := f.nextNodeGetIdErr; e != nil {
+		return nil, e
+	}
 	return f.nodeGetIdResp, nil
 }
 
@@ -211,6 +224,9 @@ func (f *NodeClient) NodeGetId(ctx context.Context, in *csipb.NodeGetIdRequest, 
 func (f *NodeClient) NodeGetInfo(ctx context.Context, in *csipb.NodeGetInfoRequest, opts ...grpc.CallOption) (*csipb.NodeGetInfoResponse, error) {
 	if f.nextErr != nil {
 		return nil, f.nextErr
+	}
+	if f.nextNodeGetInfoErr != nil {
+		return nil, f.nextNodeGetInfoErr
 	}
 	return f.nodeGetInfoResp, nil
 }
