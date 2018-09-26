@@ -401,32 +401,32 @@ func TestGetNodeInfoWithFallback(t *testing.T) {
 		expectedGetNodeIdCall   bool
 	}{
 		"no error on neither method": {
-			nil,
-			nil,
-			nil,
-			true,
-			false,
+			nodeGetInfoErr:          nil,
+			nodeGetIdErr:            nil,
+			expectedErr:             nil,
+			expectedGetNodeInfoCall: true,
+			expectedGetNodeIdCall:   false,
 		},
 		"unimplemented NodeGetInfo": {
-			errUnimplemented,
-			nil,
-			nil,
-			true,
-			true,
+			nodeGetInfoErr:          errUnimplemented,
+			nodeGetIdErr:            nil,
+			expectedErr:             nil,
+			expectedGetNodeInfoCall: true,
+			expectedGetNodeIdCall:   true,
 		},
 		"other error for NodeGetInfo": {
-			errRandom,
-			nil,
-			errRandom,
-			true,
-			false,
+			nodeGetInfoErr:          errRandom,
+			nodeGetIdErr:            nil,
+			expectedErr:             errRandom,
+			expectedGetNodeInfoCall: true,
+			expectedGetNodeIdCall:   false,
 		},
 		"unimplemented NodeGetInfo and error on NodeGetId": {
-			errUnimplemented,
-			errRandom,
-			errRandom,
-			true,
-			true,
+			nodeGetInfoErr:          errUnimplemented,
+			nodeGetIdErr:            errRandom,
+			expectedErr:             errRandom,
+			expectedGetNodeInfoCall: true,
+			expectedGetNodeIdCall:   true,
 		},
 	}
 
@@ -472,16 +472,16 @@ type nodeInfoGetter struct {
 
 func (g *nodeInfoGetter) NodeGetId(ctx context.Context) (string, error) {
 	g.nodeGetIdCallCount += 1
-	if err := g.nodeGetIdErr; err != nil {
-		return "", err
+	if g.nodeGetIdErr != nil {
+		return "", g.nodeGetIdErr
 	}
 	return "some node id", nil
 }
 
 func (g *nodeInfoGetter) NodeGetInfo(ctx context.Context) (string, int64, *csipb.Topology, error) {
 	g.nodeGetInfoCallCount += 1
-	if err := g.nodeGetInfoErr; err != nil {
-		return "", 0, nil, err
+	if g.nodeGetInfoErr != nil {
+		return "", 0, nil, g.nodeGetInfoErr
 	}
 	return "some node id", 0, nil, nil
 }
